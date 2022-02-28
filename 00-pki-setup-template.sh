@@ -125,6 +125,7 @@ vault write -format=json ${intpath}/root/sign-intermediate csr=@${intcn3}.csr \
 # Import signed intermediate
 vault write ${intpath3}/intermediate/set-signed certificate=@${intcn3}.cert.pem
 
+exit
 
 ###############################################################################
 # Create leaf / identity certs
@@ -136,9 +137,8 @@ vault write ${intpath2}/roles/demo-app.local \
 
 vault write ${intpath2}/issue/demo-app.local \
   common_name=demo-app.local \
-  format=pem_bundle > demo-app.pembundle
+  format=pem_bundle > demo-app.pem
 
-exit
 
 # Create policy allowing Istio to generate 2nd level intermediates
 vault policy create 
