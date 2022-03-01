@@ -106,42 +106,54 @@ vault write ${intpath2}/intermediate/set-signed certificate=@${intcn2}.cert.pem
 
 ###############################################################################
 # Setup second intermediate at the second level 
-intcn3=demo-int-a1b-istio
-intpath3=pki-${intcn3}
-vault secrets disable $intpath3
-vault secrets enable -path=$intpath3 pki
-vault secrets tune -max-lease-ttl=43800h $intpath3
+#intcn3=demo-int-a1b-istio
+#intpath3=pki-${intcn3}
+#vault secrets disable $intpath3
+#vault secrets enable -path=$intpath3 pki
+#vault secrets tune -max-lease-ttl=43800h $intpath3
+#
+## Generate intermediate and save CSR
+#vault write -format=json ${intpath3}/intermediate/generate/internal \
+#  common_name=$intcn3 \
+#  | jq -r '.data.csr' > ${intcn3}.csr
+#
+## Sign the 2nd level intermediate certificate with the root CA private key
+#vault write -format=json ${intpath}/root/sign-intermediate csr=@${intcn3}.csr \
+#     format=pem_bundle ttl="43800h" \
+#     | jq -r '.data.certificate' > ${intcn3}.cert.pem
+#
+## Import signed intermediate
+#vault write ${intpath3}/intermediate/set-signed certificate=@${intcn3}.cert.pem
 
-# Generate intermediate and save CSR
-vault write -format=json ${intpath3}/intermediate/generate/internal \
-  common_name=$intcn3 \
-  | jq -r '.data.csr' > ${intcn3}.csr
-
-# Sign the 2nd level intermediate certificate with the root CA private key
-vault write -format=json ${intpath}/root/sign-intermediate csr=@${intcn3}.csr \
-     format=pem_bundle ttl="43800h" \
-     | jq -r '.data.certificate' > ${intcn3}.cert.pem
-
-# Import signed intermediate
-vault write ${intpath3}/intermediate/set-signed certificate=@${intcn3}.cert.pem
-
-exit
 
 ###############################################################################
 # Create leaf / identity certs
-vault write ${intpath2}/roles/demo-app.local \
-    allowed_domains=demo-app.local \
-    allow_bare_domains=true \
-    allow_subdomains=true max_ttl=72h \
-    key_bits=4096
-
-vault write ${intpath2}/issue/demo-app.local \
-  common_name=demo-app.local \
-  format=pem_bundle > demo-app.pem
+#vault write ${intpath2}/roles/demo-app.local \
+#    allowed_domains=demo-app.local \
+#    allow_bare_domains=true \
+#    allow_subdomains=true max_ttl=72h \
+#    key_bits=4096
+#
+#vault write ${intpath2}/issue/demo-app.local \
+#  common_name=demo-app.local \
+#  format=pem_bundle > demo-app.pem
 
 
 # Create policy allowing Istio to generate 2nd level intermediates
-vault policy create 
+vault policy create intermediate-signer - <<EOF
+path "${intpath}/root/sign-intermediate" {
+  capabilities = ["create", "update"]
+}
+EOF
+
+vault token create -policy=intermediate-signer
+
+
+exit
+
+vault write -format=json ${intpath}/root/sign-intermediate csr=@${intcn2}.csr \
+     format=pem_bundle ttl="43800h" \
+     | jq -r '.data.certificate' > ${intcn2}.cert.pem
 
 
 # Create role for generating identity cert from 
